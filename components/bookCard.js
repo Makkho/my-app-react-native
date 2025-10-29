@@ -1,11 +1,16 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
-const BookCard = ({ book, onPress, onToggleRead }) => {
+const BookCard = ({ book, onPress, onToggleRead, onToggleFavorite }) => {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
+      {book.coverImage && (
+        <View style={styles.coverContainer}>
+          <Image source={{ uri: book.coverImage }} style={styles.coverImage} resizeMode="cover" />
+        </View>
+      )}
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.title} numberOfLines={1}>
@@ -59,6 +64,20 @@ const BookCard = ({ book, onPress, onToggleRead }) => {
       </View>
 
       <View style={styles.footer}>
+        <TouchableOpacity
+          onPress={(e) => {
+            e.stopPropagation();
+            onToggleFavorite && onToggleFavorite(book);
+          }}
+          style={styles.favoriteTouch}
+        >
+          <Ionicons
+            name={book.favorite ? 'heart' : 'heart-outline'}
+            size={20}
+            color={book.favorite ? colors.danger : colors.textLight}
+          />
+        </TouchableOpacity>
+
         <Ionicons name="chevron-forward" size={20} color={colors.primary} />
       </View>
     </TouchableOpacity>
@@ -66,10 +85,21 @@ const BookCard = ({ book, onPress, onToggleRead }) => {
 };
 
 const styles = StyleSheet.create({
+  coverContainer: {
+    marginTop: -16,
+    marginHorizontal: -16,
+    marginBottom: 12,
+    height: 160,
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
   card: {
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
+    overflow: 'hidden',
     marginHorizontal: 16,
     marginVertical: 8,
     shadowColor: '#000',
@@ -124,7 +154,14 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   footer: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  favoriteTouch: {
+    marginRight: 12,
+    padding: 6,
+    borderRadius: 8,
   },
 });
 

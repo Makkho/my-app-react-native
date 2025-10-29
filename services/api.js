@@ -1,24 +1,20 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// ⚠️ REMPLACER 192.168.1.25 par VOTRE IP locale
+// ⚠️ REMPLACER par VOTRE IP locale
 const LOCAL_IP = '172.22.128.1';
 
 const getApiUrl = () => {
   if (__DEV__) {
     const platform = Platform.OS;
     
-    // Pour tous les cas en dev : utiliser l'IP locale
     if (platform === 'android') {
-      // Android Emulator peut utiliser l'IP locale
       return `http://${LOCAL_IP}:3000`;
     } else if (platform === 'ios') {
-      // iOS Simulator utilise aussi l'IP locale
       return `http://${LOCAL_IP}:3000`;
     }
   }
   
-  // Appareil physique : même IP
   return `http://${LOCAL_IP}:3000`;
 };
 
@@ -32,7 +28,6 @@ const api = axios.create({
   },
 });
 
-// Intercepteur pour débugger
 api.interceptors.request.use(
   config => {
     console.log('📡 API Request:', config.method?.toUpperCase(), config.url);

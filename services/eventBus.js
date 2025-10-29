@@ -1,4 +1,3 @@
-// Simple in-memory event bus for small cross-screen notifications
 const _subs = Object.create(null);
 
 export const on = (event, handler) => {
@@ -15,7 +14,6 @@ export const emit = (event, payload) => {
     try {
       h(payload);
     } catch (e) {
-      // swallow handler errors
       console.warn('event handler error', e);
     }
   });

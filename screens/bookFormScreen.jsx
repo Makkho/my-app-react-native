@@ -10,7 +10,9 @@ import {
   Switch,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import bookService from '../services/bookService';
 import colors from '../constants/colors';
@@ -28,6 +30,7 @@ const BookFormScreen = ({ route, navigation }) => {
     favorite: false,
     rating: null,
     theme: '',
+    coverImage: null,
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -43,6 +46,7 @@ const BookFormScreen = ({ route, navigation }) => {
         favorite: existingBook.favorite || false,
         rating: existingBook.rating,
         theme: existingBook.theme || '',
+        coverImage: existingBook.coverImage || null,
       });
     }
   }, [existingBook]);
@@ -85,6 +89,30 @@ const BookFormScreen = ({ route, navigation }) => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à vos photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [3, 4],
+      quality: 0.2,
+      base64: true,
+      maxWidth: 600,
+      maxHeight: 800,
+    });
+
+    if (!result.canceled) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setFormData(prev => ({ ...prev, coverImage: base64Image }));
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validate()) {
       return;
@@ -103,6 +131,11 @@ const BookFormScreen = ({ route, navigation }) => {
         rating: formData.rating,
         theme: formData.theme.trim() || null,
       };
+
+     
+      if (formData.coverImage) {
+        bookData.coverImage = formData.coverImage;
+      }
 
       if (isEditing) {
         await bookService.updateBook(existingBook.id, bookData);
@@ -175,6 +208,20 @@ const BookFormScreen = ({ route, navigation }) => {
               maxLength={4}
             />
             {errors.year && <Text style={styles.errorText}>{errors.year}</Text>}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Couverture</Text>
+            <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+              {formData.coverImage ? (
+                <Image source={{ uri: formData.coverImage }} style={styles.coverImage} resizeMode="cover" />
+              ) : (
+                <View style={styles.placeholderContainer}>
+                  <Ionicons name="image-outline" size={40} color={colors.textLight} />
+                  <Text style={styles.placeholderText}>Ajouter une couverture</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
 
           <View style={styles.inputGroup}>
@@ -267,6 +314,28 @@ const BookFormScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  imagePickerButton: {
+    height: 200,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  placeholderContainer: {
+    alignItems: 'center',
+  },
+  placeholderText: {
+    marginTop: 8,
+    color: colors.textLight,
+    fontSize: 16,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,

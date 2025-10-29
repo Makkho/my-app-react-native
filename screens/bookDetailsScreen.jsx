@@ -5,6 +5,8 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  TextInput,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import bookService from '../services/bookService';
@@ -17,6 +19,10 @@ const BookDetailsScreen = ({ route, navigation }) => {
   const { bookId } = route.params;
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notes, setNotes] = useState([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
 
   // Pour afficher notre alerte custom
   const [alertData, setAlertData] = useState({
@@ -59,12 +65,27 @@ const BookDetailsScreen = ({ route, navigation }) => {
       setLoading(true);
       const data = await bookService.getBookById(bookId);
       setBook(data);
+      // charger les notes associées
+      loadNotes();
     } catch (err) {
       console.error('Erreur de chargement :', err);
       showInfoAlert(`Erreur : ${err.message}`);
       navigation.goBack();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadNotes = async () => {
+    try {
+      setNotesLoading(true);
+      const data = await bookService.getBookNotes(bookId);
+      setNotes(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Erreur chargement notes :', err);
+      // ne pas bloquer l'affichage principal
+    } finally {
+      setNotesLoading(false);
     }
   };
 
@@ -80,6 +101,21 @@ const BookDetailsScreen = ({ route, navigation }) => {
 
   const handleEdit = () => {
     navigation.navigate('BookForm', { book });
+  };
+
+  const handleToggleFavorite = async () => {
+    if (!book) return;
+    try {
+      setLoading(true);
+      await bookService.toggleFavorite(book.id, book.favorite);
+      await loadBook();
+      emitEvent('books:changed');
+    } catch (err) {
+      console.error('Toggle favorite error', err);
+      showInfoAlert('Impossible de changer le statut favori');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -101,6 +137,23 @@ const BookDetailsScreen = ({ route, navigation }) => {
     });
   };
 
+  const handleAddNote = async () => {
+    const content = newNote.trim();
+    if (!content) return showInfoAlert('La note est vide.');
+    try {
+      setAddingNote(true);
+      await bookService.addBookNote(bookId, content);
+      setNewNote('');
+      await loadNotes();
+      emitEvent('books:changed');
+    } catch (err) {
+      console.error('Erreur ajout note :', err);
+      showInfoAlert('Impossible d\'ajouter la note.');
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner message="Chargement du livre..." />;
   }
@@ -111,6 +164,16 @@ const BookDetailsScreen = ({ route, navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
+      {book.coverImage ? (
+        <View style={styles.coverImageContainer}>
+          <Image source={{ uri: book.coverImage }} style={styles.coverImage} resizeMode="contain" />
+        </View>
+      ) : (
+        <View style={[styles.coverImageContainer, styles.noCoverContainer]}>
+          <Ionicons name="book-outline" size={100} color={colors.textLight} />
+          <Text style={styles.noCoverText}>Pas de couverture</Text>
+        </View>
+      )}
       <View style={styles.header}>
         <View style={styles.statusContainer}>
           <TouchableOpacity
@@ -167,6 +230,15 @@ const BookDetailsScreen = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={handleToggleFavorite}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={book.favorite ? 'heart' : 'heart-outline'} size={22} color={book.favorite ? colors.danger : colors.textWhite} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.deleteButton}
           onPress={handleDelete}
           disabled={loading}
@@ -187,11 +259,70 @@ const BookDetailsScreen = ({ route, navigation }) => {
         onConfirm={alertData.onConfirm}
         onCancel={alertData.onCancel}
       />
+      {/* Section Notes */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Notes</Text>
+
+        {notesLoading ? (
+          <Text style={styles.infoValue}>Chargement des notes...</Text>
+        ) : (
+          <View>
+            {notes.length === 0 ? (
+              <Text style={styles.infoValue}>Aucune note pour ce livre.</Text>
+            ) : (
+              notes.map((n) => (
+                <View key={n.id || n._id || Math.random()} style={styles.noteRow}>
+                  <Text style={styles.noteContent}>{n.content || n.text || n.body}</Text>
+                  <Text style={styles.noteDate}>{(n.createdAt || n.date) ? new Date(n.createdAt || n.date).toLocaleString() : ''}</Text>
+                </View>
+              ))
+            )}
+
+            <View style={styles.addNoteRow}>
+              <TextInput
+                style={styles.noteInput}
+                placeholder="Ajouter un commentaire..."
+                value={newNote}
+                onChangeText={setNewNote}
+                editable={!addingNote}
+                multiline
+              />
+              <TouchableOpacity
+                style={[styles.addNoteButton, addingNote && { opacity: 0.6 }]}
+                onPress={handleAddNote}
+                disabled={addingNote}
+              >
+                <Text style={styles.addNoteButtonText}>{addingNote ? 'Ajout...' : 'Ajouter'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  coverImageContainer: {
+    width: '100%',
+    height: 400,
+    backgroundColor: colors.background,
+    padding: 16,
+  },
+  coverImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  noCoverContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noCoverText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.textLight,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -303,6 +434,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  noteRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  noteContent: {
+    color: colors.text,
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  noteDate: {
+    color: colors.textLight,
+    fontSize: 12,
+  },
+  addNoteRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  noteInput: {
+    flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 8,
+    backgroundColor: '#fff',
+  },
+  addNoteButton: {
+    marginLeft: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addNoteButtonText: {
+    color: colors.textWhite,
+    fontWeight: '600',
+  },
+  favoriteButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

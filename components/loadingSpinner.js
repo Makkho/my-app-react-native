@@ -1,4 +1,3 @@
-// components/LoadingSpinner.js
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import colors from '../constants/colors';

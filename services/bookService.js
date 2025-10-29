@@ -6,7 +6,6 @@ const handleApiError = (error, defaultMessage) => {
 };
 
 const bookService = {
-  // Récupérer tous les livres avec options de filtrage et tri
   getAllBooks: async ({
     query = '',
     author = '',
@@ -32,7 +31,6 @@ const bookService = {
     }
   },
 
-  // Récupérer un livre par ID
   getBookById: async (id) => {
     try {
       const response = await api.get(`/books/${id}`);
@@ -42,27 +40,50 @@ const bookService = {
     }
   },
 
-  // Créer un nouveau livre
   createBook: async (bookData) => {
     try {
-      const response = await api.post('/books', bookData);
-      return response.data;
+      const { coverImage, ...payload } = bookData;
+      const response = await api.post('/books', payload);
+      const created = response.data;
+
+      if (coverImage && created && created.id) {
+        try {
+          await api.put(`/books/${created.id}/cover`, { coverImage });
+          const refreshed = await api.get(`/books/${created.id}`);
+          return refreshed.data;
+        } catch (err) {
+          return created;
+        }
+      }
+
+      return created;
     } catch (error) {
       handleApiError(error, 'Erreur lors de la création du livre');
     }
   },
 
-  // Mettre à jour un livre
   updateBook: async (id, bookData) => {
     try {
-      const response = await api.put(`/books/${id}`, bookData);
-      return response.data;
+      const { coverImage, ...payload } = bookData;
+      const response = await api.put(`/books/${id}`, payload);
+      const updated = response.data;
+
+      if (coverImage) {
+        try {
+          await api.put(`/books/${id}/cover`, { coverImage });
+          const refreshed = await api.get(`/books/${id}`);
+          return refreshed.data;
+        } catch (err) {
+          return updated;
+        }
+      }
+
+      return updated;
     } catch (error) {
       handleApiError(error, 'Erreur lors de la mise à jour du livre');
     }
   },
 
-  // Supprimer un livre
   deleteBook: async (id) => {
     try {
       const response = await api.delete(`/books/${id}`);
@@ -72,7 +93,6 @@ const bookService = {
     }
   },
 
-  // Toggle statut lu/non lu
   toggleReadStatus: async (id, currentStatus) => {
     try {
       const response = await api.put(`/books/${id}`, { read: !currentStatus });
@@ -82,7 +102,6 @@ const bookService = {
     }
   },
 
-  // Toggle favori
   toggleFavorite: async (id, currentStatus) => {
     try {
       const response = await api.put(`/books/${id}`, { favorite: !currentStatus });
@@ -92,7 +111,6 @@ const bookService = {
     }
   },
 
-  // Mettre à jour la note
   updateRating: async (id, rating) => {
     try {
       const response = await api.put(`/books/${id}`, { rating });
@@ -102,7 +120,6 @@ const bookService = {
     }
   },
 
-  // Récupérer les notes d'un livre
   getBookNotes: async (id) => {
     try {
       const response = await api.get(`/books/${id}/notes`);
@@ -112,7 +129,6 @@ const bookService = {
     }
   },
 
-  // Ajouter une note à un livre
   addBookNote: async (id, content) => {
     try {
       const response = await api.post(`/books/${id}/notes`, { content });
@@ -122,7 +138,6 @@ const bookService = {
     }
   },
 
-  // Obtenir les statistiques
   getStats: async () => {
     try {
       const response = await api.get('/stats');
@@ -132,7 +147,33 @@ const bookService = {
     }
   },
 
-  // Réinitialiser les données
+  getBookCover: async (id) => {
+    try {
+      const response = await api.get(`/books/${id}/cover`);
+      return response.data;
+    } catch (error) {
+      handleApiError(error, 'Erreur lors du chargement de la couverture');
+    }
+  },
+
+  setBookCover: async (id, base64Image) => {
+    try {
+      const response = await api.put(`/books/${id}/cover`, { coverImage: base64Image });
+      return response.data;
+    } catch (error) {
+      handleApiError(error, 'Erreur lors de l\'upload de la couverture');
+    }
+  },
+
+  deleteBookCover: async (id) => {
+    try {
+      const response = await api.delete(`/books/${id}/cover`);
+      return response.data;
+    } catch (error) {
+      handleApiError(error, 'Erreur lors de la suppression de la couverture');
+    }
+  },
+
   resetData: async () => {
     try {
       const response = await api.post('/reset');

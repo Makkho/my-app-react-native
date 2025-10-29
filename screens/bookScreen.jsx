@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  TextInput,
+  ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,6 +24,11 @@ const BookListScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('all'); 
+  const [sortField, setSortField] = useState('name'); 
+  const [sortOrder, setSortOrder] = useState('asc'); 
+
   const loadBooks = async (showRefreshing = false) => {
     try {
       if (showRefreshing) {
@@ -31,8 +38,16 @@ const BookListScreen = ({ navigation }) => {
       }
       setError(null);
       
-      const data = await bookService.getAllBooks();
-      setBooks(data);
+      const params = {
+        ...(query && { query }),
+        ...(filter === 'read' && { read: true }),
+        ...(filter === 'unread' && { read: false }),
+        ...(filter === 'favorite' && { favorite: true }),
+        ...(sortField && { sort: sortField, order: sortOrder }),
+      };
+
+      const data = await bookService.getAllBooks(params);
+      setBooks(data || []);
     } catch (err) {
       setError(err.message);
       Alert.alert('Erreur', err.message);
@@ -42,18 +57,21 @@ const BookListScreen = ({ navigation }) => {
     }
   };
 
-  // Charger les livres au montage et à chaque focus
   useFocusEffect(
     useCallback(() => {
       loadBooks();
     }, [])
   );
 
-  // Réagir aux événements externes (ajout/suppression/édition)
   useEffect(() => {
     const unsub = onEvent('books:changed', () => loadBooks());
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => loadBooks(), 400);
+    return () => clearTimeout(t);
+  }, [query, filter, sortField, sortOrder]);
 
   const handleToggleRead = async (book) => {
     try {
@@ -64,9 +82,22 @@ const BookListScreen = ({ navigation }) => {
     }
   };
 
+  const handleToggleFavorite = async (book) => {
+    try {
+      await bookService.toggleFavorite(book.id, book.favorite);
+      await loadBooks();
+    } catch (err) {
+      Alert.alert('Erreur', err.message || 'Impossible de changer le statut favori');
+    }
+  };
+
   const handleRefresh = () => {
     loadBooks(true);
   };
+
+  const toggleSortOrder = () => setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+
+  const setFilterAndReload = (f) => setFilter(f);
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -91,6 +122,52 @@ const BookListScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Rechercher par titre ou auteur..."
+          value={query}
+          onChangeText={setQuery}
+          returnKeyType="search"
+          onSubmitEditing={() => loadBooks()}
+        />
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+          <TouchableOpacity style={[styles.chip, filter === 'all' && styles.chipSelected]} onPress={() => setFilterAndReload('all')}>
+            <Text style={filter === 'all' ? styles.chipTextSelected : styles.chipText}>Tous</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.chip, filter === 'read' && styles.chipSelected]} onPress={() => setFilterAndReload('read')}>
+            <Text style={filter === 'read' ? styles.chipTextSelected : styles.chipText}>Lus</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.chip, filter === 'unread' && styles.chipSelected]} onPress={() => setFilterAndReload('unread')}>
+            <Text style={filter === 'unread' ? styles.chipTextSelected : styles.chipText}>Non lus</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.chip, filter === 'favorite' && styles.chipSelected]} onPress={() => setFilterAndReload('favorite')}>
+            <Text style={filter === 'favorite' ? styles.chipTextSelected : styles.chipText}>Favoris</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        <View style={styles.sortRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow: 0}}>
+            <View style={styles.sortButtonsContainer}>
+              <TouchableOpacity style={[styles.sortButton, sortField === 'name' && styles.sortSelected]} onPress={() => setSortField('name')}>
+                <Text style={sortField === 'name' ? styles.sortSelectedText : styles.sortText}>Titre</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sortButton, sortField === 'author' && styles.sortSelected]} onPress={() => setSortField('author')}>
+                <Text style={sortField === 'author' ? styles.sortSelectedText : styles.sortText}>Auteur</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.sortButton, sortField === 'theme' && styles.sortSelected]} onPress={() => setSortField('theme')}>
+                <Text style={sortField === 'theme' ? styles.sortSelectedText : styles.sortText}>Thème</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+
+          <TouchableOpacity style={styles.sortOrderButton} onPress={toggleSortOrder}>
+            <Ionicons name={sortOrder === 'asc' ? 'arrow-up' : 'arrow-down'} size={18} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <FlatList
         data={books}
         keyExtractor={(item) => item.id.toString()}
@@ -99,6 +176,7 @@ const BookListScreen = ({ navigation }) => {
             book={item}
             onPress={() => navigation.navigate('BookDetails', { bookId: item.id })}
             onToggleRead={handleToggleRead}
+            onToggleFavorite={handleToggleFavorite}
           />
         )}
         ListEmptyComponent={renderEmpty}
@@ -129,6 +207,74 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  searchContainer: {
+    padding: 12,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  searchInput: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 10,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    color: colors.textLight,
+    fontWeight: '600',
+  },
+  chipTextSelected: {
+    color: colors.textWhite,
+    fontWeight: '700',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sortButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 8,
+  },
+  sortSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sortText: {
+    color: colors.textLight,
+    fontWeight: '600',
+  },
+  sortSelectedText: {
+    color: colors.textWhite,
+    fontWeight: '700',
+  },
+  sortOrderButton: {
+    padding: 8,
   },
   list: {
     paddingVertical: 8,
