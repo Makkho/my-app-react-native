@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import bookService from '../services/bookService';
+import { on as onEvent } from '../services/eventBus';
 import BookCard from '../components/bookCard';
 import LoadingSpinner from '../components/loadingSpinner';
 import colors from '../constants/colors';
@@ -47,6 +48,12 @@ const BookListScreen = ({ navigation }) => {
       loadBooks();
     }, [])
   );
+
+  // Réagir aux événements externes (ajout/suppression/édition)
+  useEffect(() => {
+    const unsub = onEvent('books:changed', () => loadBooks());
+    return () => unsub();
+  }, []);
 
   const handleToggleRead = async (book) => {
     try {

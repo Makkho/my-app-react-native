@@ -1,4 +1,3 @@
-// screens/BookDetailsScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -6,17 +5,50 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import bookService from '../services/bookService';
+import { emit as emitEvent } from '../services/eventBus';
 import LoadingSpinner from '../components/loadingSpinner';
+import CustomAlert from '../components/customAlert';
 import colors from '../constants/colors';
 
 const BookDetailsScreen = ({ route, navigation }) => {
   const { bookId } = route.params;
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Pour afficher notre alerte custom
+  const [alertData, setAlertData] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+    onCancel: null,
+  });
+
+  const showStyledAlert = (message, onConfirm) => {
+    setAlertData({
+      visible: true,
+      title: 'Confirmation',
+      message,
+      onConfirm: () => {
+        setAlertData({ visible: false });
+        if (onConfirm) onConfirm();
+      },
+      onCancel: () => setAlertData({ visible: false }),
+    });
+  };
+
+  const showInfoAlert = (message) => {
+    setAlertData({
+      visible: true,
+      title: 'Information',
+      message,
+      onConfirm: () => setAlertData({ visible: false }),
+      onCancel: null,
+    });
+  };
 
   useEffect(() => {
     loadBook();
@@ -28,9 +60,9 @@ const BookDetailsScreen = ({ route, navigation }) => {
       const data = await bookService.getBookById(bookId);
       setBook(data);
     } catch (err) {
-      Alert.alert('Erreur', err.message, [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      console.error('Erreur de chargement :', err);
+      showInfoAlert(`Erreur : ${err.message}`);
+      navigation.goBack();
     } finally {
       setLoading(false);
     }
@@ -41,7 +73,8 @@ const BookDetailsScreen = ({ route, navigation }) => {
       await bookService.toggleReadStatus(book.id, book.read);
       await loadBook();
     } catch (err) {
-      Alert.alert('Erreur', err.message);
+      console.error('Erreur changement statut :', err);
+      showInfoAlert(`Erreur : ${err.message}`);
     }
   };
 
@@ -49,27 +82,23 @@ const BookDetailsScreen = ({ route, navigation }) => {
     navigation.navigate('BookForm', { book });
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Supprimer le livre',
-      `Voulez-vous vraiment supprimer "${book.name}" ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await bookService.deleteBook(book.id);
-              Alert.alert('Succès', 'Livre supprimé avec succès');
-              navigation.goBack();
-            } catch (err) {
-              Alert.alert('Erreur', err.message);
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = async () => {
+    if (!book) return;
+
+    showStyledAlert(`Voulez-vous vraiment supprimer "${book.name}" ?`, async () => {
+      try {
+        setLoading(true);
+        await bookService.deleteBook(book.id);
+        emitEvent('books:changed');
+        showInfoAlert('Livre supprimé avec succès.');
+        navigation.navigate('BookList');
+      } catch (err) {
+        console.error('Erreur suppression :', err);
+        showInfoAlert('Erreur lors de la suppression du livre.');
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   if (loading) {
@@ -87,7 +116,7 @@ const BookDetailsScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={[
               styles.statusBadge,
-              { backgroundColor: book.read ? colors.successLight : colors.warningLight }
+              { backgroundColor: book.read ? colors.successLight : colors.warningLight },
             ]}
             onPress={handleToggleRead}
           >
@@ -99,7 +128,7 @@ const BookDetailsScreen = ({ route, navigation }) => {
             <Text
               style={[
                 styles.statusText,
-                { color: book.read ? colors.success : colors.warning }
+                { color: book.read ? colors.success : colors.warning },
               ]}
             >
               {book.read ? 'Lu' : 'Non lu'}
@@ -137,11 +166,27 @@ const BookDetailsScreen = ({ route, navigation }) => {
           <Text style={styles.editButtonText}>Modifier</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDelete}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
           <Ionicons name="trash-outline" size={24} color={colors.textWhite} />
-          <Text style={styles.deleteButtonText}>Supprimer</Text>
+          <Text style={styles.deleteButtonText}>
+            {loading ? 'Suppression...' : 'Supprimer'}
+          </Text>
         </TouchableOpacity>
       </View>
+
+      {/* 🔔 Alerte stylisée */}
+      <CustomAlert
+        visible={alertData.visible}
+        title={alertData.title}
+        message={alertData.message}
+        onConfirm={alertData.onConfirm}
+        onCancel={alertData.onCancel}
+      />
     </ScrollView>
   );
 };
