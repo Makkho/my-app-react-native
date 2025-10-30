@@ -6,7 +6,13 @@ import BookDetailsScreen from '../screens/bookDetailsScreen';
 import BookFormScreen from '../screens/bookFormScreen';
 import colors from '../constants/colors';
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  BookList: undefined;
+  BookDetails: { bookId: string }; 
+  BookForm: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (

@@ -65,7 +65,6 @@ const BookDetailsScreen = ({ route, navigation }) => {
       setLoading(true);
       const data = await bookService.getBookById(bookId);
       setBook(data);
-      // charger les notes associées
       loadNotes();
     } catch (err) {
       console.error('Erreur de chargement :', err);
@@ -83,7 +82,6 @@ const BookDetailsScreen = ({ route, navigation }) => {
       setNotes(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Erreur chargement notes :', err);
-      // ne pas bloquer l'affichage principal
     } finally {
       setNotesLoading(false);
     }
@@ -103,20 +101,6 @@ const BookDetailsScreen = ({ route, navigation }) => {
     navigation.navigate('BookForm', { book });
   };
 
-  const handleToggleFavorite = async () => {
-    if (!book) return;
-    try {
-      setLoading(true);
-      await bookService.toggleFavorite(book.id, book.favorite);
-      await loadBook();
-      emitEvent('books:changed');
-    } catch (err) {
-      console.error('Toggle favorite error', err);
-      showInfoAlert('Impossible de changer le statut favori');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDelete = async () => {
     if (!book) return;
@@ -164,9 +148,9 @@ const BookDetailsScreen = ({ route, navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
-      {book.coverImage ? (
+      {book.cover ? (
         <View style={styles.coverImageContainer}>
-          <Image source={{ uri: book.coverImage }} style={styles.coverImage} resizeMode="contain" />
+          <Image source={{ uri: book.cover }} style={styles.coverImage} resizeMode="contain" />
         </View>
       ) : (
         <View style={[styles.coverImageContainer, styles.noCoverContainer]}>
@@ -211,7 +195,7 @@ const BookDetailsScreen = ({ route, navigation }) => {
             <Ionicons name="business-outline" size={20} color={colors.primary} />
             <Text style={styles.infoLabelText}>Éditeur</Text>
           </View>
-          <Text style={styles.infoValue}>{book.publisher || 'Non renseigné'}</Text>
+          <Text style={styles.infoValue}>{book.editor || 'Non renseigné'}</Text>
         </View>
 
         <View style={styles.infoRow}>
@@ -230,15 +214,6 @@ const BookDetailsScreen = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.favoriteButton}
-          onPress={handleToggleFavorite}
-          disabled={loading}
-          activeOpacity={0.7}
-        >
-          <Ionicons name={book.favorite ? 'heart' : 'heart-outline'} size={22} color={book.favorite ? colors.danger : colors.textWhite} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={styles.deleteButton}
           onPress={handleDelete}
           disabled={loading}
@@ -251,7 +226,6 @@ const BookDetailsScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* 🔔 Alerte stylisée */}
       <CustomAlert
         visible={alertData.visible}
         title={alertData.title}
@@ -259,7 +233,6 @@ const BookDetailsScreen = ({ route, navigation }) => {
         onConfirm={alertData.onConfirm}
         onCancel={alertData.onCancel}
       />
-      {/* Section Notes */}
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Notes</Text>
 
