@@ -2,7 +2,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 
 // ⚠️ REMPLACER par VOTRE IP locale
-const LOCAL_IP = '172.22.128.1';
+const LOCAL_IP = '172.23.128.1';
 
 const getApiUrl = () => {
   if (__DEV__) {

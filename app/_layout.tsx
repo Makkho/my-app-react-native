@@ -11,12 +11,13 @@ export default function RootLayout() {
           headerStyle: {
             backgroundColor: colors.primary,
           },
+          headerShown: false,
           headerTintColor: colors.textWhite,
           headerTitleStyle: {
             fontWeight: '700',
             fontSize: 20,
           },
-          headerShadowVisible: true,
+          headerShadowVisible: false,
           animation: 'slide_from_right',
         }}
       />
